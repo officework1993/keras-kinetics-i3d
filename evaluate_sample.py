@@ -48,7 +48,7 @@ def main(args):
 
         # load RGB sample (just one example)
         rgb_sample = np.load(SAMPLE_DATA_PATH['rgb'])
-        
+        # import ipdb;ipdb.set_trace()
         # make prediction
         rgb_logits = rgb_model.predict(rgb_sample)
 
