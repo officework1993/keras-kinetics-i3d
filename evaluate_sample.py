@@ -14,7 +14,7 @@ import tqdm
 tf.enable_eager_execution()
 from i3d_inception import Inception_Inflated3d
 
-NUM_FRAMES = 79
+NUM_FRAMES = 32 #changing this can help
 FRAME_HEIGHT = 224
 FRAME_WIDTH = 224
 NUM_RGB_CHANNELS = 3
@@ -53,8 +53,11 @@ def get_mean_and_std(dataset,
         s2 += tf.math.reduce_sum(x ** 2, axis=1).numpy()
         # s1 += torch.sum(x, dim=1).numpy()
         # s2 += torch.sum(x ** 2, dim=1).numpy()
-    mean = s1 / n  # type: np.ndarray
-    std = np.sqrt(s2 / n - mean ** 2)  # type: np.ndarray
+    # print("mean::::::::",(type(s1)),"::::",type(n))
+    mean = s1 / int(n)  # type: np.ndarray
+    
+
+    std = np.sqrt(s2 / int(n) - mean ** 2)  # type: np.ndarray
 
     mean = mean.astype(np.float32)
     std = std.astype(np.float32)
@@ -63,7 +66,7 @@ def get_mean_and_std(dataset,
 
 def main(args,to_predict):
     # load the kinetics classes
-    kinetics_classes = [x.strip() for x in open(LABEL_MAP_PATH, 'r')]
+    # kinetics_classes = [x.strip() for x in open(LABEL_MAP_PATH, 'r')]
 
 
     if args.eval_type in ['rgb', 'joint']:
@@ -73,7 +76,7 @@ def main(args,to_predict):
             rgb_model = Inception_Inflated3d(
                 include_top=True,
                 weights='rgb_kinetics_only',
-                input_shape=(NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH, NUM_RGB_CHANNELS),
+                input_shape=(NUM_RGB_CHANNELS,NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH),
                 classes=NUM_CLASSES)
         else:
             # build model for RGB data
@@ -81,7 +84,7 @@ def main(args,to_predict):
             rgb_model = Inception_Inflated3d(
                 include_top=True,
                 weights='rgb_imagenet_and_kinetics',
-                input_shape=(NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH, NUM_RGB_CHANNELS),
+                input_shape=(NUM_RGB_CHANNELS,NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH),
                 classes=NUM_CLASSES)
 
         # load RGB sample (just one example)
@@ -99,7 +102,7 @@ def main(args,to_predict):
             flow_model = Inception_Inflated3d(
                 include_top=True,
                 weights='flow_kinetics_only',
-                input_shape=(NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH, NUM_FLOW_CHANNELS),
+                input_shape=( NUM_FLOW_CHANNELS,NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH),
                 classes=NUM_CLASSES)
         else:
             # build model for optical flow data
@@ -107,7 +110,7 @@ def main(args,to_predict):
             flow_model = Inception_Inflated3d(
                 include_top=True,
                 weights='flow_imagenet_and_kinetics',
-                input_shape=(NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH, NUM_FLOW_CHANNELS),
+                input_shape=(NUM_FLOW_CHANNELS,NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH ),
                 classes=NUM_CLASSES)
 
 
@@ -156,12 +159,12 @@ if __name__ == '__main__':
     kwargs = {"target_type": 'EF',
           "mean": mean,
           "std": std,
-          "length": 79,
-          "period": 2,
+          "length": 32,
+          "period": 1,
           }
     train_dataset = Echo(root="delipynb/a4c-video-dir/",split="train", **kwargs)
     train_dataloader = tf.data.Dataset.from_generator(train_dataset, output_types=(tf.float32, tf.float32)).\
-        shuffle(buffer_size=256).batch(1)
+        shuffle(buffer_size=32).batch(1)
 
     for X,EF_val in train_dataloader:
         if EF_val.numpy()>75:

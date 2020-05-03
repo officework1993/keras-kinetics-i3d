@@ -30,9 +30,12 @@ def loadvideo(filename: str) -> np.ndarray:
         raise FileNotFoundError(filename)
     capture = cv2.VideoCapture(filename)
 
+    frame_width = 224
+    frame_height = 224
+
     frame_count = int(capture.get(cv2.CAP_PROP_FRAME_COUNT))
-    frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    # frame_width = int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    # frame_height = int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     v = np.zeros((frame_count, frame_width, frame_height, 3), np.uint8)
 
@@ -42,6 +45,9 @@ def loadvideo(filename: str) -> np.ndarray:
             raise ValueError("Failed to load frame #{} of {}.".format(count, filename))
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.resize(frame,(224,224))
+        # frame = np.random.rand(224,224,3)
+        # print("frame_shape =============================",frame.shape)
         v[count] = frame
 
     v = v.transpose((3, 0, 1, 2))
@@ -98,7 +104,7 @@ class Echo():
         external_test_location (string): Path to videos to use for external testing.
     """
 
-    def __init__(self, root="a4c-video-dir/",
+    def __init__(self, root="delipynb/a4c-video-dir/",
                  split="train", target_type="EF",
                  mean=0., std=1.,
                  length=16, period=2,

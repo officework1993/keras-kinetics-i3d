@@ -309,7 +309,7 @@ def Inception_Inflated3d(include_top=True,
         data_format=K.image_data_format(),
         require_flatten=include_top,
         weights=weights)
-
+    print(":::::",input_shape)
     if input_tensor is None:
         img_input = Input(shape=input_shape)
     else:
@@ -317,12 +317,14 @@ def Inception_Inflated3d(include_top=True,
             img_input = Input(tensor=input_tensor, shape=input_shape)
         else:
             img_input = input_tensor
-
+    # print("="*20,K.image_data_format())
+    # K.image_data_format()="channels_first"
     if K.image_data_format() == 'channels_first':
+        print("=="*20,K.image_data_format())
         channel_axis = 1
     else:
         channel_axis = 4
-    channel_axis  = 1
+    # channel_axis  = 1
     # Downsampling via convolution (spatial and temporal)
     x = conv3d_bn(img_input, 64, 7, 7, 7, strides=(2, 2, 2), padding='same', name='Conv3d_1a_7x7')
 
