@@ -14,7 +14,7 @@ import tqdm
 tf.enable_eager_execution()
 from i3d_inception import Inception_Inflated3d
 
-NUM_FRAMES = 32 #changing this can help
+NUM_FRAMES = 79 #changing this can help
 FRAME_HEIGHT = 224
 FRAME_WIDTH = 224
 NUM_RGB_CHANNELS = 3
@@ -65,10 +65,6 @@ def get_mean_and_std(dataset,
     return mean, std
 
 def main(args,to_predict):
-    # load the kinetics classes
-    # kinetics_classes = [x.strip() for x in open(LABEL_MAP_PATH, 'r')]
-
-
     if args.eval_type in ['rgb', 'joint']:
         if args.no_imagenet_pretrained:
             # build model for RGB data
@@ -76,7 +72,7 @@ def main(args,to_predict):
             rgb_model = Inception_Inflated3d(
                 include_top=True,
                 weights='rgb_kinetics_only',
-                input_shape=(NUM_RGB_CHANNELS,NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH),
+                input_shape=(NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH, NUM_RGB_CHANNELS),
                 classes=NUM_CLASSES)
         else:
             # build model for RGB data
@@ -84,15 +80,16 @@ def main(args,to_predict):
             rgb_model = Inception_Inflated3d(
                 include_top=True,
                 weights='rgb_imagenet_and_kinetics',
-                input_shape=(NUM_RGB_CHANNELS,NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH),
+                input_shape=(NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH, NUM_RGB_CHANNELS),
                 classes=NUM_CLASSES)
 
-        # load RGB sample (just one example)
-        # rgb_sample = np.load(SAMPLE_DATA_PATH['rgb'])
-        # import ipdb;ipdb.set_trace()
-        # make prediction
 
-        rgb_logits = rgb_model.predict(to_predict)
+    # load RGB sample (just one example)
+    # rgb_sample = np.load(SAMPLE_DATA_PATH['rgb'])
+    # import ipdb;ipdb.set_trace()
+    # make prediction
+
+    rgb_logits = rgb_model.predict(to_predict)
 
 
     if args.eval_type in ['flow', 'joint']:
@@ -102,7 +99,7 @@ def main(args,to_predict):
             flow_model = Inception_Inflated3d(
                 include_top=True,
                 weights='flow_kinetics_only',
-                input_shape=( NUM_FLOW_CHANNELS,NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH),
+                input_shape=(NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH, NUM_FLOW_CHANNELS),
                 classes=NUM_CLASSES)
         else:
             # build model for optical flow data
@@ -110,16 +107,16 @@ def main(args,to_predict):
             flow_model = Inception_Inflated3d(
                 include_top=True,
                 weights='flow_imagenet_and_kinetics',
-                input_shape=(NUM_FLOW_CHANNELS,NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH ),
+                input_shape=(NUM_FRAMES, FRAME_HEIGHT, FRAME_WIDTH, NUM_FLOW_CHANNELS),
                 classes=NUM_CLASSES)
 
 
-        # load flow sample (just one example)
+    # load flow sample (just one example)
 
-        # flow_sample = np.load(SAMPLE_DATA_PATH['flow'])
-        
-        # make prediction
-        flow_logits = flow_model.predict(to_predict)
+    # flow_sample = np.load(SAMPLE_DATA_PATH['flow'])
+    
+    # make prediction
+    # flow_logits = flow_model.predict(to_predict)
 
 
     # produce final model logits
@@ -147,7 +144,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--eval-type', 
         help='specify model type. 1 stream (rgb or flow) or 2 stream (joint = rgb and flow).', 
-        type=str, choices=['rgb', 'flow', 'joint'], default='joint')
+        type=str, choices=['rgb', 'flow', 'joint'], default='rgb')
 
     parser.add_argument('--no-imagenet-pretrained',
         help='If set, load model weights trained only on kinetics dataset. Otherwise, load model weights trained on imagenet and kinetics dataset.',
@@ -155,14 +152,12 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    mean, std = get_mean_and_std(Echo(root="delipynb/a4c-video-dir/",split="train"))
+    # mean, std = get_mean_and_std(Echo(root="delipynb/a4c-video-dir/",split="train"))
     kwargs = {"target_type": 'EF',
-          "mean": mean,
-          "std": std,
-          "length": 32,
+          "length": NUM_FRAMES,
           "period": 1,
           }
-    train_dataset = Echo(root="delipynb/a4c-video-dir/",split="train", **kwargs)
+    train_dataset = Echo(root="a4c-video-dir/",split="train", **kwargs)
     train_dataloader = tf.data.Dataset.from_generator(train_dataset, output_types=(tf.float32, tf.float32)).\
         shuffle(buffer_size=32).batch(1)
 
@@ -170,4 +165,6 @@ if __name__ == '__main__':
         if EF_val.numpy()>75:
             continue
         else:
-            main(args,X)
+            print("before feed shape ::", X.numpy().shape)
+            feed = X.numpy().transpose(0,2,3,4,1)
+            main(args,feed)
