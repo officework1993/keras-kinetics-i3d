@@ -6,6 +6,11 @@ Evaluates a RGB and Flow sample similar to the paper's github repo: 'https://git
 import numpy as np
 import argparse
 
+#imports for dataloader
+from data_loader import Echo
+import tensorflow as tf
+import tqdm
+
 from i3d_inception import Inception_Inflated3d
 
 NUM_FRAMES = 79
@@ -23,7 +28,38 @@ SAMPLE_DATA_PATH = {
 
 LABEL_MAP_PATH = 'data/label_map.txt'
 
-def main(args):
+def get_mean_and_std(dataset,
+                     samples: int = 128,
+                     batch_size: int = 8,
+                     num_workers: int = 4):
+    dataloader = tf.data.Dataset.from_generator(dataset, output_types=(tf.float32, tf.float32)).\
+        shuffle(buffer_size=256).batch(batch_size)
+
+    if samples is not None and len(dataset) > samples:
+        dataloader = dataloader.take(samples)
+
+
+    n = 0  
+    s1 = 0.  
+    s2 = 0. 
+    for (x, *_) in tqdm.tqdm(dataloader):
+        x = tf.transpose(x, perm=[1,0,2,3,4])
+        x = tf.reshape(x, [3,-1])
+        # x = x.transpose(0, 1).contiguous().view(3, -1)
+        n += x.shape[1]
+        s1 += tf.math.reduce_sum(x, axis=1).numpy()
+        s2 += tf.math.reduce_sum(x ** 2, axis=1).numpy()
+        # s1 += torch.sum(x, dim=1).numpy()
+        # s2 += torch.sum(x ** 2, dim=1).numpy()
+    mean = s1 / n  # type: np.ndarray
+    std = np.sqrt(s2 / n - mean ** 2)  # type: np.ndarray
+
+    mean = mean.astype(np.float32)
+    std = std.astype(np.float32)
+
+    return mean, std
+
+def main(args,to_predict):
     # load the kinetics classes
     kinetics_classes = [x.strip() for x in open(LABEL_MAP_PATH, 'r')]
 
@@ -47,10 +83,11 @@ def main(args):
                 classes=NUM_CLASSES)
 
         # load RGB sample (just one example)
-        rgb_sample = np.load(SAMPLE_DATA_PATH['rgb'])
+        # rgb_sample = np.load(SAMPLE_DATA_PATH['rgb'])
         # import ipdb;ipdb.set_trace()
         # make prediction
-        rgb_logits = rgb_model.predict(rgb_sample)
+
+        rgb_logits = rgb_model.predict(to_predict)
 
 
     if args.eval_type in ['flow', 'joint']:
@@ -73,10 +110,11 @@ def main(args):
 
 
         # load flow sample (just one example)
-        flow_sample = np.load(SAMPLE_DATA_PATH['flow'])
+
+        # flow_sample = np.load(SAMPLE_DATA_PATH['flow'])
         
         # make prediction
-        flow_logits = flow_model.predict(flow_sample)
+        flow_logits = flow_model.predict(to_predict)
 
 
     # produce final model logits
@@ -87,16 +125,14 @@ def main(args):
     else: # joint
         sample_logits = rgb_logits + flow_logits
 
+    import pdb;pdb.set_trace()
     # produce softmax output from model logit for class probabilities
     sample_logits = sample_logits[0] # we are dealing with just one example
     sample_predictions = np.exp(sample_logits) / np.sum(np.exp(sample_logits))
 
     sorted_indices = np.argsort(sample_predictions)[::-1]
 
-    print('\nNorm of logits: %f' % np.linalg.norm(sample_logits))
-    print('\nTop classes and probabilities')
-    for index in sorted_indices[:20]:
-        print(sample_predictions[index], sample_logits[index], kinetics_classes[index])
+
 
     return
 
@@ -114,4 +150,19 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    main(args)
+    mean, std = get_mean_and_std(Echo(root="a4c-video-dir/",split="train"))
+    kwargs = {"target_type": 'EF',
+          "mean": mean,
+          "std": std,
+          "length": 79,
+          "period": 2,
+          }
+    train_dataset = Echo(root="a4c-video-dir/",split="train", **kwargs)
+    train_dataloader = tf.data.Dataset.from_generator(train_dataset, output_types=(tf.float32, tf.float32)).\
+        shuffle(buffer_size=256).batch(1)
+
+    for X,EF_val in train_dataloader:
+        if EF_val.numpy()>75:
+            continue
+        else:
+            main(args,X)

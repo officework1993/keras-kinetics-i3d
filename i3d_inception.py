@@ -322,7 +322,7 @@ def Inception_Inflated3d(include_top=True,
         channel_axis = 1
     else:
         channel_axis = 4
-    channel_axis  = 4
+    channel_axis  = 1
     # Downsampling via convolution (spatial and temporal)
     x = conv3d_bn(img_input, 64, 7, 7, 7, strides=(2, 2, 2), padding='same', name='Conv3d_1a_7x7')
 
