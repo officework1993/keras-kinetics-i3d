@@ -22,7 +22,7 @@ FRAME_WIDTH = 224
 NUM_RGB_CHANNELS = 3
 NUM_FLOW_CHANNELS = 2
 
-NUM_CLASSES = 400
+NUM_CLASSES = 400 
 
 def main(args,to_predict):
     if args.eval_type in ['rgb', 'joint']:
@@ -109,7 +109,8 @@ if __name__ == '__main__':
 
     #model for classification only (not the proper way, but need to use pretrained weights directly)
     model_2 = Sequential()
-    model_2.add(Dense(2,activation="softmax",input_shape=(400,)))
+    model_2.add(Dense(100,input_shape=(400,)))
+    model_2.add(Dense(2,activation = "sigmoid"))
     loss_func = tf.keras.losses.binary_crossentropy
     optim = tf.keras.optimizers.Adam()
     total = 0
@@ -124,13 +125,14 @@ if __name__ == '__main__':
             else:
                 out = np.array([0.0,1.0]) 
             # actual_vals.append(act)
-            print("before feed shape ::", X.numpy().shape)
+            # print("before feed shape ::", X.numpy().shape)
             feed = X.numpy().transpose(0,2,3,4,1)
             out_1 = main(args,feed)
             out_2 = model_2(out_1)
             if args.train:
                 with tf.GradientTape() as tape:
                     # out_2 = model_2(dummy_incomping_from_model)
+                    out_2 = model_2(out_1)
                     loss = loss_func(out,out_2)
                     print(loss)
                     grads = tape.gradient(loss,model_2.trainable_variables)
@@ -139,6 +141,6 @@ if __name__ == '__main__':
                 out_2 = model_2.predict(out_1)
                 final_out = np.argmax(out_2)
 
-            if final_out == np.argmax(out):
-                correct+=1
-            print("accuracy:::",correct/total)
+                if final_out == np.argmax(out):
+                  correct+=1
+                print("accuracy:::",correct/total)

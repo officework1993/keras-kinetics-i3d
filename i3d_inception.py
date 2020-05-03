@@ -309,7 +309,7 @@ def Inception_Inflated3d(include_top=True,
         data_format=K.image_data_format(),
         require_flatten=include_top,
         weights=weights)
-    print(":::::",input_shape)
+    # print(":::::",input_shape)
     if input_tensor is None:
         img_input = Input(shape=input_shape)
     else:
