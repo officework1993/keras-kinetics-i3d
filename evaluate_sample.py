@@ -11,6 +11,7 @@ from data_loader import Echo
 import tensorflow as tf
 import tqdm
 
+tf.enable_eager_execution()
 from i3d_inception import Inception_Inflated3d
 
 NUM_FRAMES = 79
@@ -43,6 +44,7 @@ def get_mean_and_std(dataset,
     s1 = 0.  
     s2 = 0. 
     for (x, *_) in tqdm.tqdm(dataloader):
+    # for (x,_) in dataloader:
         x = tf.transpose(x, perm=[1,0,2,3,4])
         x = tf.reshape(x, [3,-1])
         # x = x.transpose(0, 1).contiguous().view(3, -1)
@@ -150,14 +152,14 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    mean, std = get_mean_and_std(Echo(root="a4c-video-dir/",split="train"))
+    mean, std = get_mean_and_std(Echo(root="delipynb/a4c-video-dir/",split="train"))
     kwargs = {"target_type": 'EF',
           "mean": mean,
           "std": std,
           "length": 79,
           "period": 2,
           }
-    train_dataset = Echo(root="a4c-video-dir/",split="train", **kwargs)
+    train_dataset = Echo(root="delipynb/a4c-video-dir/",split="train", **kwargs)
     train_dataloader = tf.data.Dataset.from_generator(train_dataset, output_types=(tf.float32, tf.float32)).\
         shuffle(buffer_size=256).batch(1)
 
