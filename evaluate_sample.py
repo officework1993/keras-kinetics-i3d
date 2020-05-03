@@ -5,6 +5,8 @@ Evaluates a RGB and Flow sample similar to the paper's github repo: 'https://git
 
 import numpy as np
 import argparse
+from tensorflow.keras.layers import Dense
+from tensorflow.keras import Model,Sequential
 
 #imports for dataloader
 from data_loader import Echo
@@ -21,48 +23,6 @@ NUM_RGB_CHANNELS = 3
 NUM_FLOW_CHANNELS = 2
 
 NUM_CLASSES = 400
-
-SAMPLE_DATA_PATH = {
-    'rgb' : 'data/v_CricketShot_g04_c01_rgb.npy',
-    'flow' : 'data/v_CricketShot_g04_c01_flow.npy'
-}
-
-LABEL_MAP_PATH = 'data/label_map.txt'
-
-def get_mean_and_std(dataset,
-                     samples: int = 128,
-                     batch_size: int = 8,
-                     num_workers: int = 4):
-    dataloader = tf.data.Dataset.from_generator(dataset, output_types=(tf.float32, tf.float32)).\
-        shuffle(buffer_size=256).batch(batch_size)
-
-    if samples is not None and len(dataset) > samples:
-        dataloader = dataloader.take(samples)
-
-
-    n = 0  
-    s1 = 0.  
-    s2 = 0. 
-    for (x, *_) in tqdm.tqdm(dataloader):
-    # for (x,_) in dataloader:
-        x = tf.transpose(x, perm=[1,0,2,3,4])
-        x = tf.reshape(x, [3,-1])
-        # x = x.transpose(0, 1).contiguous().view(3, -1)
-        n += x.shape[1]
-        s1 += tf.math.reduce_sum(x, axis=1).numpy()
-        s2 += tf.math.reduce_sum(x ** 2, axis=1).numpy()
-        # s1 += torch.sum(x, dim=1).numpy()
-        # s2 += torch.sum(x ** 2, dim=1).numpy()
-    # print("mean::::::::",(type(s1)),"::::",type(n))
-    mean = s1 / int(n)  # type: np.ndarray
-    
-
-    std = np.sqrt(s2 / int(n) - mean ** 2)  # type: np.ndarray
-
-    mean = mean.astype(np.float32)
-    std = std.astype(np.float32)
-
-    return mean, std
 
 def main(args,to_predict):
     if args.eval_type in ['rgb', 'joint']:
@@ -119,24 +79,7 @@ def main(args,to_predict):
     # flow_logits = flow_model.predict(to_predict)
 
 
-    # produce final model logits
-    if args.eval_type == 'rgb':
-        sample_logits = rgb_logits
-    elif args.eval_type == 'flow':
-        sample_logits = flow_logits
-    else: # joint
-        sample_logits = rgb_logits + flow_logits
-
-    import pdb;pdb.set_trace()
-    # produce softmax output from model logit for class probabilities
-    sample_logits = sample_logits[0] # we are dealing with just one example
-    sample_predictions = np.exp(sample_logits) / np.sum(np.exp(sample_logits))
-
-    sorted_indices = np.argsort(sample_predictions)[::-1]
-
-
-
-    return
+    return rgb_logits
 
 
 if __name__ == '__main__':
@@ -150,6 +93,8 @@ if __name__ == '__main__':
         help='If set, load model weights trained only on kinetics dataset. Otherwise, load model weights trained on imagenet and kinetics dataset.',
         action='store_true')
 
+    parser.add_argument("--train",default = False)
+
 
     args = parser.parse_args()
     # mean, std = get_mean_and_std(Echo(root="delipynb/a4c-video-dir/",split="train"))
@@ -160,11 +105,40 @@ if __name__ == '__main__':
     train_dataset = Echo(root="a4c-video-dir/",split="train", **kwargs)
     train_dataloader = tf.data.Dataset.from_generator(train_dataset, output_types=(tf.float32, tf.float32)).\
         shuffle(buffer_size=32).batch(1)
+    actual_vals = []
 
+    #model for classification only (not the proper way, but need to use pretrained weights directly)
+    model_2 = Sequential()
+    model_2.add(Dense(2,activation="softmax",input_shape=(400,)))
+    loss_func = tf.keras.losses.binary_crossentropy
+    optim = tf.keras.optimizers.Adam()
+    total = 0
+    correct = 0
     for X,EF_val in train_dataloader:
         if EF_val.numpy()>75:
             continue
         else:
+            total +=1
+            if EF_val.numpy() < 50:
+                out = np.array([1.0,0.0])
+            else:
+                out = np.array([0.0,1.0]) 
+            # actual_vals.append(act)
             print("before feed shape ::", X.numpy().shape)
             feed = X.numpy().transpose(0,2,3,4,1)
-            main(args,feed)
+            out_1 = main(args,feed)
+            out_2 = model_2(out_1)
+            if args.train:
+                with tf.GradientTape() as tape:
+                    # out_2 = model_2(dummy_incomping_from_model)
+                    loss = loss_func(out,out_2)
+                    print(loss)
+                    grads = tape.gradient(loss,model_2.trainable_variables)
+                    optim.apply_gradients(zip(grads,model_2.trainable_variables))
+            else:
+                out_2 = model_2.predict(out_1)
+                final_out = np.argmax(out_2)
+
+            if final_out == np.argmax(out):
+                correct+=1
+            print("accuracy:::",correct/total)
