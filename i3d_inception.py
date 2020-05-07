@@ -228,7 +228,7 @@ def conv3d_bn(x,
     return x
 
 
-def Inception_Inflated3d(include_top=True,
+def Inception_Inflated3d(include_top=False,
                 weights=None,
                 input_tensor=None,
                 input_shape=None,
@@ -295,9 +295,9 @@ def Inception_Inflated3d(include_top=True,
                          str(WEIGHTS_NAME) + ' ' 
                          'or a valid path to a file containing `weights` values')
 
-    if weights in WEIGHTS_NAME and include_top and classes != 400:
-        raise ValueError('If using `weights` as one of these %s, with `include_top`'
-                         ' as true, `classes` should be 400' % str(WEIGHTS_NAME))
+    # if weights in WEIGHTS_NAME and include_top: #and classes != 400:
+    #     raise ValueError('If using `weights` as one of these %s, with `include_top`'
+    #                      ' as true, `classes` should be 400' % str(WEIGHTS_NAME))
 
     # Determine proper input shape
     input_shape = _obtain_input_shape(
